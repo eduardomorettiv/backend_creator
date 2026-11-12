@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de Backend a partir de SQL</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Prism.js Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+
+  <!-- JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              accent: '#10b981'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 sticky top-0 z-30 shadow-lg">
+    <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+          <i class="fa-database fa-solid text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-wide flex items-center gap-2">
+            Gerador de Backend a partir de SQL
+            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono font-medium">Auto Express CRUD</span>
+          </h1>
+          <p class="text-xs text-slate-400">Transforme tabelas SQL em uma API Node.js completa diretamente na sua Área de Trabalho ou em ZIP</p>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <button onclick="saveDirectToFolder()" class="px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-md shadow-emerald-600/20 transition flex items-center gap-2 active:scale-95">
+          <i class="fa-solid fa-folder-plus text-sm"></i> Criar Pasta Direto no Computador
+        </button>
+        <button onclick="downloadAsZip()" class="px-3.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-lg shadow-md shadow-brand-600/20 transition flex items-center gap-2 active:scale-95">
+          <i class="fa-solid fa-file-zipper text-sm"></i> Baixar como ZIP
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-3 sm:p-6 flex flex-col">
+
+    <!-- CENTERED PANEL: SQL & CONFIGURATION INPUTS -->
+    <section class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xl">
+      
+      <div class="bg-slate-950/60 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-brand-400"></i> Entrada de Dados & Parâmetros
+        </h2>
+        <div class="flex items-center gap-3">
+          <span id="db-status-badge" class="font-mono text-xs text-emerald-400 font-semibold">MySQL / MariaDB</span>
+          <button onclick="loadSampleSQL()" class="text-[11px] text-brand-400 hover:text-brand-300 font-medium transition flex items-center gap-1">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Carregar Exemplo
+          </button>
+        </div>
+      </div>
+
+      <div class="p-4 sm:p-6 space-y-5">
+
+        <!-- SQL Script Textarea -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+            <span>Script SQL (CREATE TABLE)</span>
+            <span class="text-[10px] text-slate-400 font-normal">Aceita múltiplas tabelas</span>
+          </label>
+          <textarea id="sql-input" oninput="generateAllCode()" rows="10" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3.5 text-xs font-mono text-emerald-300 focus:outline-none focus:border-brand-500 transition resize-y leading-relaxed" placeholder="Cole seu SQL aqui... Ex: CREATE TABLE usuarios (id INT PRIMARY KEY, nome VARCHAR(100));"></textarea>
+        </div>
+
+        <!-- Additional Project Configurations -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Nome do Projeto
+            </label>
+            <input type="text" id="cfg-project-name" value="meu-backend-api" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="meu-backend-api">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Banco de Dados
+            </label>
+            <select id="cfg-db-type" onchange="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500">
+              <option value="mysql" selected>MySQL / MariaDB</option>
+              <option value="postgresql">PostgreSQL</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Porta do Servidor
+            </label>
+            <input type="number" id="cfg-server-port" value="3000" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="3000">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Nome do Banco (DB_NAME)
+            </label>
+            <input type="text" id="cfg-db-name" value="meubanco" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="meubanco">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Usuário do Banco (DB_USER)
+            </label>
+            <input type="text" id="cfg-db-user" value="root" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="root">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+              Senha do Banco (DB_PASS)
+            </label>
+            <input type="password" id="cfg-db-pass" value="senha123" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="senha123">
+          </div>
+
+        </div>
+
+        <!-- Detected Entities Summary -->
+        <div class="bg-slate-950 border border-slate-800 rounded-lg p-3.5">
+          <div class="flex items-center justify-between text-xs mb-2">
+            <span class="font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-table-list text-emerald-400"></i> Tabelas Detectadas & Estrutura Pronta
+            </span>
+            <span id="detected-count" class="bg-brand-500/10 text-brand-400 px-2 py-0.5 rounded-full font-mono text-[10px] font-bold">0 tabelas</span>
+          </div>
+          <div id="parsed-summary" class="text-xs text-slate-400 space-y-1.5 font-mono">
+            <!-- Dynamic tables info -->
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+    <div id="toast-icon" class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm flex-shrink-0">
+      <i class="fa-solid fa-check"></i>
+    </div>
+    <div>
+      <h4 id="toast-title" class="text-xs font-bold">Sucesso!</h4>
+      <p id="toast-desc" class="text-[11px] text-slate-300">Ação concluída com êxito.</p>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    let generatedFiles = {};
+    let parsedTables = [];
+
+    const SAMPLE_SQL = `CREATE TABLE usuarios (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  nome VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  senha VARCHAR(255) NOT NULL,
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE produtos (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  titulo VARCHAR(150) NOT NULL,
+  preco DECIMAL(10,2) NOT NULL,
+  quantidade INT DEFAULT 0,
+  descricao TEXT
+);
+
+CREATE TABLE pedidos (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  usuario_id INT NOT NULL,
+  total DECIMAL(10,2) NOT NULL,
+  status VARCHAR(50) DEFAULT 'pendente'
+);`;
+
+    window.onload = () => {
+      loadSampleSQL();
+    };
+
+    function loadSampleSQL() {
+      document.getElementById('sql-input').value = SAMPLE_SQL;
+      generateAllCode();
+    }
+
+    // --- SQL PARSER ENGINE ---
+    function parseSQL(sqlText) {
+      const cleanSql = sqlText.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[`"']?(\w+)[`"']?\.)?[`"']?(\w+)[`"']?\s*\(([\s\S]*?)\);/gi;
+
+      const tables = [];
+      let match;
+
+      while ((match = createTableRegex.exec(cleanSql)) !== null) {
+        const tableName = match[2] || match[1];
+        const columnsBlock = match[3];
+
+        const lines = splitColumns(columnsBlock);
+        const columns = [];
+        let primaryKey = 'id';
+
+        lines.forEach(line => {
+          line = line.trim();
+          if (!line) return;
+
+          const upper = line.toUpperCase();
+          if (upper.startsWith('PRIMARY KEY') || upper.startsWith('CONSTRAINT')) {
+            const pkMatch = line.match(/PRIMARY\s+KEY\s*\(([`"']?(\w+)[`"']?)\)/i);
+            if (pkMatch) primaryKey = pkMatch[2];
+            return;
+          }
+          if (upper.startsWith('FOREIGN KEY') || upper.startsWith('KEY') || upper.startsWith('UNIQUE')) {
+            return;
+          }
+
+          const colMatch = line.match(/^[`"']?(\w+)[`"']?\s+([A-Za-z0-9_()]+)/);
+          if (colMatch) {
+            const colName = colMatch[1];
+            const colType = colMatch[2].toUpperCase();
+            if (/PRIMARY\s+KEY/i.test(line)) {
+              primaryKey = colName;
+            }
+            columns.push({ name: colName, type: colType });
+          }
+        });
+
+        if (tableName) {
+          tables.push({
+            name: tableName,
+            columns: columns.length > 0 ? columns : [{ name: 'id', type: 'INT' }],
+            primaryKey: primaryKey || (columns[0] ? columns[0].name : 'id')
+          });
+        }
+      }
+
+      return tables;
+    }
+
+    function splitColumns(block) {
+      const parts = [];
+      let current = '';
+      let parenDepth = 0;
+
+      for (let i = 0; i < block.length; i++) {
+        const char = block[i];
+        if (char === '(') parenDepth++;
+        else if (char === ')') parenDepth--;
+
+        if (char === ',' && parenDepth === 0) {
+          parts.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      if (current.trim()) parts.push(current);
+      return parts;
+    }
+
+    // --- GENERATOR CONTROLLER ---
+    function generateAllCode() {
+      const sqlInput = document.getElementById('sql-input').value;
+      const projectName = document.getElementById('cfg-project-name').value.trim() || 'meu-backend-api';
+      const dbType = document.getElementById('cfg-db-type').value;
+      const serverPort = document.getElementById('cfg-server-port').value.trim() || '3000';
+      const dbName = document.getElementById('cfg-db-name').value.trim() || 'meubanco';
+      const dbUser = document.getElementById('cfg-db-user').value.trim() || 'root';
+      const dbPass = document.getElementById('cfg-db-pass').value.trim() || 'senha123';
+
+      document.getElementById('db-status-badge').textContent = dbType === 'mysql' ? 'MySQL / MariaDB' : 'PostgreSQL';
+
+      parsedTables = parseSQL(sqlInput);
+      renderParsedSummary(parsedTables);
+
+      generatedFiles = {};
+
+      // 1. package.json
+      generatedFiles["package.json"] = JSON.stringify({
+        name: projectName,
+        version: "1.0.0",
+        description: `API RESTful gerada automaticamente para ${dbType.toUpperCase()}`,
+        main: "server.js",
+        type: "module",
+        scripts: {
+          start: "node server.js",
+          dev: "node --watch server.js"
+        },
+        dependencies: {
+          express: "^4.18.2",
+          dotenv: "^16.3.1",
+          cors: "^2.8.5",
+          [dbType === 'mysql' ? 'mysql2' : 'pg']: dbType === 'mysql' ? "^3.6.5" : "^8.11.3"
+        }
+      }, null, 2);
+
+      // 2. .env
+      generatedFiles[".env"] = `PORT=${serverPort}
+DB_HOST=localhost
+DB_USER=${dbUser}
+DB_PASS=${dbPass}
+DB_NAME=${dbName}
+DB_PORT=${dbType === 'mysql' ? 3306 : 5432}
+`;
+
+      // 3. config/db.js
+      if (dbType === 'mysql') {
+        generatedFiles["config/db.js"] = `import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const db = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || '${dbUser}',
+  password: process.env.DB_PASS || '${dbPass}',
+  database: process.env.DB_NAME || '${dbName}',
+  port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+console.log('[Database] Pool de conexões MySQL configurado.');
+export default db;
+`;
+      } else {
+        generatedFiles["config/db.js"] = `import pkg from 'pg';
+const { Pool } = pkg;
+import dotenv from 'dotenv';
+dotenv.config();
+
+const db = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || '${dbUser}',
+  password: process.env.DB_PASS || '${dbPass}',
+  database: process.env.DB_NAME || '${dbName}',
+  port: process.env.DB_PORT || 5432,
+});
+
+console.log('[Database] Pool de conexões PostgreSQL configurado.');
+export default db;
+`;
+      }
+
+      // 4. Controllers & Routes for each parsed table
+      if (parsedTables.length === 0) {
+        generatedFiles["controllers/exemploController.js"] = `// Nenhuma tabela detectada no SQL. Cole um CREATE TABLE para gerar controladores.`;
+        generatedFiles["routes/exemploRoutes.js"] = `// Nenhuma tabela detectada.`;
+      } else {
+        parsedTables.forEach(table => {
+          const tName = table.name;
+          const pk = table.primaryKey;
+          const nonPkCols = table.columns.filter(c => c.name.toLowerCase() !== pk.toLowerCase());
+
+          // Controller
+          if (dbType === 'mysql') {
+            generatedFiles[`controllers/${tName}Controller.js`] = `import db from '../config/db.js';
+
+// GET /api/${tName} - Listar todos
+export const getAll = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM ${tName}');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// GET /api/${tName}/:id - Buscar por ID
+export const getById = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM ${tName} WHERE ${pk} = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    res.json({ success: true, data: rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// POST /api/${tName} - Criar registro
+export const create = async (req, res) => {
+  try {
+    const { ${nonPkCols.map(c => c.name).join(', ')} } = req.body;
+    const [result] = await db.query(
+      'INSERT INTO ${tName} (${nonPkCols.map(c => c.name).join(', ')}) VALUES (${nonPkCols.map(() => '?').join(', ')})',
+      [${nonPkCols.map(c => c.name).join(', ')}]
+    );
+    res.status(201).json({ success: true, id: result.insertId, message: 'Registro criado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// PUT /api/${tName}/:id - Atualizar registro
+export const update = async (req, res) => {
+  try {
+    const { ${nonPkCols.map(c => c.name).join(', ')} } = req.body;
+    const [result] = await db.query(
+      'UPDATE ${tName} SET ${nonPkCols.map(c => `${c.name} = ?`).join(', ')} WHERE ${pk} = ?',
+      [${nonPkCols.map(c => c.name).join(', ')}, req.params.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    res.json({ success: true, message: 'Registro atualizado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// DELETE /api/${tName}/:id - Deletar registro
+export const remove = async (req, res) => {
+  try {
+    const [result] = await db.query('DELETE FROM ${tName} WHERE ${pk} = ?', [req.params.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    res.json({ success: true, message: 'Registro deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+`;
+          } else {
+            // PostgreSQL Controller
+            const pgPlaceholders = nonPkCols.map((_, i) => `$${i + 1}`).join(', ');
+            const pgUpdateAssignments = nonPkCols.map((c, i) => `${c.name} = $${i + 1}`).join(', ');
+            
+            generatedFiles[`controllers/${tName}Controller.js`] = `import db from '../config/db.js';
+
+// GET /api/${tName} - Listar todos
+export const getAll = async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM ${tName}');
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// GET /api/${tName}/:id - Buscar por ID
+export const getById = async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM ${tName} WHERE ${pk} = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// POST /api/${tName} - Criar registro
+export const create = async (req, res) => {
+  try {
+    const { ${nonPkCols.map(c => c.name).join(', ')} } = req.body;
+    const result = await db.query(
+      'INSERT INTO ${tName} (${nonPkCols.map(c => c.name).join(', ')}) VALUES (${pgPlaceholders}) RETURNING *',
+      [${nonPkCols.map(c => c.name).join(', ')}]
+    );
+    res.status(201).json({ success: true, data: result.rows[0], message: 'Registro criado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// PUT /api/${tName}/:id - Atualizar registro
+export const update = async (req, res) => {
+  try {
+    const { ${nonPkCols.map(c => c.name).join(', ')} } = req.body;
+    const result = await db.query(
+      'UPDATE ${tName} SET ${pgUpdateAssignments} WHERE ${pk} = $${nonPkCols.length + 1} RETURNING *',
+      [${nonPkCols.map(c => c.name).join(', ')}, req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    res.json({ success: true, data: result.rows[0], message: 'Registro atualizado' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// DELETE /api/${tName}/:id - Deletar registro
+export const remove = async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM ${tName} WHERE ${pk} = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    res.json({ success: true, message: 'Registro deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+`;
+          }
+
+          // Routes
+          generatedFiles[`routes/${tName}Routes.js`] = `import express from 'express';
+import { getAll, getById, create, update, remove } from '../controllers/${tName}Controller.js';
+
+const router = express.Router();
+
+router.get('/', getAll);
+router.get('/:id', getById);
+router.post('/', create);
+router.put('/:id', update);
+router.delete('/:id', remove);
+
+export default router;
+`;
+        });
+      }
+
+      // 5. server.js
+      generatedFiles["server.js"] = `import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+${parsedTables.map(t => `import ${t.name}Routes from './routes/${t.name}Routes.js';`).join('\n')}
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || ${serverPort};
+
+app.use(cors());
+app.use(express.json());
+
+// Rota de teste / Healthcheck
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', project: '${projectName}', timestamp: new Date() });
+});
+
+// Rotas da API geradas a partir do SQL
+${parsedTables.map(t => `app.use('/api/${t.name}', ${t.name}Routes);`).join('\n')}
+
+app.listen(PORT, () => {
+  console.log(\`🚀 Servidor Backend rodando em http://localhost:\${PORT}\`);
+  console.log(\`📌 Endpoints disponíveis:\`);
+${parsedTables.map(t => `  console.log(\`   - http://localhost:\${PORT}/api/${t.name}\`);`).join('\n')}
+});
+`;
+
+      // 6. README.md
+      generatedFiles["README.md"] = `# 🚀 ${projectName}
+
+Backend Node.js + Express gerado automaticamente a partir do script SQL para **${dbType.toUpperCase()}**.
+
+## 🛠️ Como rodar o projeto
+
+1. **Instale as dependências:**
+   \`\`\`bash
+   npm install
+   \`\`\`
+
+2. **Configure o banco de dados:**
+   Certifique-se de que o **${dbType.toUpperCase()}** está rodando e execute o seu script SQL para criar as tabelas.
+   Confira as credenciais no arquivo \`.env\`.
+
+3. **Inicie o servidor:**
+   \`\`\`bash
+   # Modo Produção
+   npm start
+
+   # Modo Desenvolvimento (Com auto-reload)
+   npm run dev
+   \`\`\`
+
+## 📌 Endpoints da API
+
+${parsedTables.map(t => `### Tabela \`${t.name}\`
+- \`GET /api/${t.name}\` - Listar todos
+- \`GET /api/${t.name}/:id\` - Obter por ID
+- \`POST /api/${t.name}\` - Criar novo
+- \`PUT /api/${t.name}/:id\` - Atualizar por ID
+- \`DELETE /api/${t.name}/:id\` - Deletar por ID
+`).join('\n')}
+`;
+    }
+
+    function renderParsedSummary(tables) {
+      const countEl = document.getElementById('detected-count');
+      const summaryEl = document.getElementById('parsed-summary');
+
+      countEl.textContent = `${tables.length} tabela${tables.length !== 1 ? 's' : ''}`;
+
+      if (tables.length === 0) {
+        summaryEl.innerHTML = `<span class="text-slate-500 italic">Nenhum comando CREATE TABLE válido encontrado.</span>`;
+        return;
+      }
+
+      summaryEl.innerHTML = tables.map(t => `
+        <div class="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded border border-slate-800">
+          <span class="text-slate-200 font-bold"><i class="fa-solid fa-table text-brand-400 mr-1.5"></i> ${t.name}</span>
+          <span class="text-[11px] text-slate-400">${t.columns.length} colunas (PK: <span class="text-emerald-400">${t.primaryKey}</span>)</span>
+        </div>
+      `).join('');
+    }
+
+    // --- FILE SYSTEM ACCESS API: WRITE DIRECTLY TO DESKTOP / DISK ---
+    async function saveDirectToFolder() {
+      const projectName = document.getElementById('cfg-project-name').value.trim() || 'meu-backend-api';
+
+      // Verifica se o navegador suporta a API ou se está rodando em um iframe bloqueado
+      if (!('showDirectoryPicker' in window) || window.self !== window.top) {
+        showToast('Modo Pré-visualização Detectado', 'O seletor de pastas é bloqueado em iframes. Iniciando download automático em ZIP...', 'info');
+        await downloadAsZip();
+        return;
+      }
+
+      try {
+        showToast('Escolha a Pasta', 'Selecione a sua Área de Trabalho (Desktop) ou qualquer pasta onde o projeto será criado.', 'info');
+
+        const parentHandle = await window.showDirectoryPicker({
+          mode: 'readwrite',
+          startIn: 'desktop'
+        });
+
+        // Create main project folder
+        const projectHandle = await parentHandle.getDirectoryHandle(projectName, { create: true });
+
+        // Iterate over generated files and construct folder tree
+        for (const [filePath, content] of Object.entries(generatedFiles)) {
+          const parts = filePath.split('/');
+          let currentHandle = projectHandle;
+
+          // Create subdirectories if needed (e.g. controllers/, routes/, config/)
+          for (let i = 0; i < parts.length - 1; i++) {
+            currentHandle = await currentHandle.getDirectoryHandle(parts[i], { create: true });
+          }
+
+          // Write file content
+          const fileName = parts[parts.length - 1];
+          const fileHandle = await currentHandle.getFileHandle(fileName, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write(content);
+          await writable.close();
+        }
+
+        showToast('Pasta Criada!', `A pasta "${projectName}" foi criada no seu computador com todos os arquivos e subpastas!`, 'success');
+      } catch (err) {
+        if (err.name === 'SecurityError') {
+          showToast('Restrição de Segurança', 'Acesso direto bloqueado neste ambiente. Baixando o projeto em ZIP...', 'info');
+          await downloadAsZip();
+        } else if (err.name !== 'AbortError') {
+          console.error(err);
+          showToast('Erro ao salvar', 'Não foi possível gravar a pasta: ' + err.message, 'error');
+        }
+      }
+    }
+
+    // --- ZIP DOWNLOAD FALLBACK ---
+    async function downloadAsZip() {
+      const projectName = document.getElementById('cfg-project-name').value.trim() || 'meu-backend-api';
+
+      if (!window.JSZip) {
+        showToast('Erro', 'Biblioteca JSZip não carregada.', 'error');
+        return;
+      }
+
+      const zip = new JSZip();
+      const folder = zip.folder(projectName);
+
+      Object.entries(generatedFiles).forEach(([filePath, content]) => {
+        folder.file(filePath, content);
+      });
+
+      try {
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${projectName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('ZIP Gerado!', `O arquivo ${projectName}.zip foi empacotado e baixado.`, 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erro no ZIP', err.message, 'error');
+      }
+    }
+
+    // --- TOAST NOTIFICATIONS ---
+    function showToast(title, desc, type = 'success') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toast-icon');
+
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-desc').textContent = desc;
+
+      if (type === 'error') {
+        icon.className = 'w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-sm flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      } else if (type === 'info') {
+        icon.className = 'w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center text-sm flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-info"></i>';
+      } else {
+        icon.className = 'w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm flex-shrink-0';
+        icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+      }
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
