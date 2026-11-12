@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="pt-BR" class="dark">
+<!-- ... --><html lang="pt-BR" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,7 +16,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
 
   <!-- JSZip -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -76,9 +74,6 @@
             Gerador de Backend a partir de SQL
             <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono font-medium">Auto Express CRUD</span>
           </h1>
-          <p class="text-xs text-slate-400">Transforme tabelas SQL em uma API Node.js completa diretamente na sua Área de Trabalho ou em ZIP</p>
-        </div>
-      </div>
           <p class="text-xs text-slate-400">Transforme tabelas SQL em uma API Node.js completa pronta para baixar em ZIP</p>
         </div>
       </div>
@@ -357,14 +352,8 @@ CREATE TABLE pedidos (
         }
       }, null, 2);
 
-      // 2. .env
-      generatedFiles[".env"] = `PORT=${serverPort}
-DB_HOST=localhost
-DB_USER=${dbUser}
-DB_PASS=
-DB_NAME=${dbName}
-DB_PORT=${dbType === 'mysql' ? 3306 : 5432}
-`;
+      // 2. config/script.sql (Salva o script SQL digitado pelo usuário)
+      generatedFiles["config/script.sql"] = sqlInput;
 
       // 3. config/db.js
       if (dbType === 'mysql') {
@@ -798,42 +787,6 @@ ${parsedTables.map(t => `  console.log(\`   - http://localhost:\${PORT}/api/${t.
         __export_source: "Backend Generator SQL",
         resources: insomniaResources
       }, null, 2);
-
-      // 7. README.md
-      generatedFiles["README.md"] = `# 🚀 ${projectName}
-
-Backend Node.js + Express gerado automaticamente a partir do script SQL para **${dbType.toUpperCase()}**.
-
-## 🛠️ Como rodar o projeto
-
-1. **Instale as dependências:**
-   \`\`\`bash
-   npm install
-   \`\`\`
-
-2. **Configure o banco de dados:**
-   Certifique-se de que o **${dbType.toUpperCase()}** está rodando e execute o seu script SQL para criar as tabelas.
-   Confira as credenciais no arquivo \`.env\`.
-
-3. **Inicie o servidor:**
-   \`\`\`bash
-   # Modo Produção
-   npm start
-
-   # Modo Desenvolvimento (Com auto-reload)
-   npm run dev
-   \`\`\`
-
-## 📌 Endpoints da API
-
-${parsedTables.map(t => `### Tabela \`${t.name}\`
-- \`GET /api/${t.name}\` - Listar todos
-- \`GET /api/${t.name}/:id\` - Obter por ID
-- \`POST /api/${t.name}\` - Criar novo
-- \`PUT /api/${t.name}/:id\` - Atualizar por ID
-- \`DELETE /api/${t.name}/:id\` - Deletar por ID
-`).join('\n')}
-`;
     }
 
     function renderParsedSummary(tables) {
