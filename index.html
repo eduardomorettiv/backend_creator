@@ -79,14 +79,14 @@
           <p class="text-xs text-slate-400">Transforme tabelas SQL em uma API Node.js completa diretamente na sua Área de Trabalho ou em ZIP</p>
         </div>
       </div>
+          <p class="text-xs text-slate-400">Transforme tabelas SQL em uma API Node.js completa pronta para baixar em ZIP</p>
+        </div>
+      </div>
 
       <!-- Actions -->
       <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-        <button onclick="saveDirectToFolder()" class="px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-md shadow-emerald-600/20 transition flex items-center gap-2 active:scale-95">
-          <i class="fa-solid fa-folder-plus text-sm"></i> Criar Pasta Direto no Computador
-        </button>
-        <button onclick="downloadAsZip()" class="px-3.5 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-lg shadow-md shadow-brand-600/20 transition flex items-center gap-2 active:scale-95">
-          <i class="fa-solid fa-file-zipper text-sm"></i> Baixar como ZIP
+        <button onclick="downloadAsZip()" class="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-lg shadow-md shadow-brand-600/20 transition flex items-center gap-2 active:scale-95">
+          <i class="fa-solid fa-file-zipper text-sm"></i> Baixar Projeto (ZIP)
         </button>
       </div>
     </div>
@@ -122,7 +122,7 @@
         </div>
 
         <!-- Additional Project Configurations -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           
           <div>
             <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
@@ -149,24 +149,18 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
-              Nome do Banco (DB_NAME)
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>Nome do Banco (DB_NAME)</span>
+              <span class="text-[9px] text-emerald-400 font-normal">Auto CREATE DATABASE</span>
             </label>
-            <input type="text" id="cfg-db-name" value="meubanco" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="meubanco">
+            <input type="text" id="cfg-db-name" value="sistema_loja" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-emerald-300 focus:outline-none focus:border-brand-500 font-mono" placeholder="meubanco">
           </div>
 
-          <div>
+          <div class="sm:col-span-2">
             <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
               Usuário do Banco (DB_USER)
             </label>
             <input type="text" id="cfg-db-user" value="root" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="root">
-          </div>
-
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
-              Senha do Banco (DB_PASS)
-            </label>
-            <input type="password" id="cfg-db-pass" value="senha123" oninput="generateAllCode()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 font-mono" placeholder="senha123">
           </div>
 
         </div>
@@ -206,7 +200,10 @@
     let generatedFiles = {};
     let parsedTables = [];
 
-    const SAMPLE_SQL = `CREATE TABLE usuarios (
+    const SAMPLE_SQL = `CREATE DATABASE IF NOT EXISTS sistema_loja;
+USE sistema_loja;
+
+CREATE TABLE usuarios (
   id INT PRIMARY KEY AUTO_INCREMENT,
   nome VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL UNIQUE,
@@ -239,6 +236,12 @@ CREATE TABLE pedidos (
     }
 
     // --- SQL PARSER ENGINE ---
+    function extractDatabaseName(sqlText) {
+      const cleanSql = sqlText.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      const dbMatch = cleanSql.match(/CREATE\s+DATABASE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?(\w+)[`"']?/i);
+      return dbMatch ? dbMatch[1] : null;
+    }
+
     function parseSQL(sqlText) {
       const cleanSql = sqlText.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
       const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[`"']?(\w+)[`"']?\.)?[`"']?(\w+)[`"']?\s*\(([\s\S]*?)\);/gi;
@@ -318,9 +321,15 @@ CREATE TABLE pedidos (
       const projectName = document.getElementById('cfg-project-name').value.trim() || 'meu-backend-api';
       const dbType = document.getElementById('cfg-db-type').value;
       const serverPort = document.getElementById('cfg-server-port').value.trim() || '3000';
-      const dbName = document.getElementById('cfg-db-name').value.trim() || 'meubanco';
       const dbUser = document.getElementById('cfg-db-user').value.trim() || 'root';
-      const dbPass = document.getElementById('cfg-db-pass').value.trim() || 'senha123';
+
+      // Identifica automaticamente o nome do banco a partir do CREATE DATABASE no SQL
+      const detectedDbName = extractDatabaseName(sqlInput);
+      const dbNameInput = document.getElementById('cfg-db-name');
+      if (detectedDbName) {
+        dbNameInput.value = detectedDbName;
+      }
+      const dbName = dbNameInput.value.trim() || 'meubanco';
 
       document.getElementById('db-status-badge').textContent = dbType === 'mysql' ? 'MySQL / MariaDB' : 'PostgreSQL';
 
@@ -352,7 +361,7 @@ CREATE TABLE pedidos (
       generatedFiles[".env"] = `PORT=${serverPort}
 DB_HOST=localhost
 DB_USER=${dbUser}
-DB_PASS=${dbPass}
+DB_PASS=
 DB_NAME=${dbName}
 DB_PORT=${dbType === 'mysql' ? 3306 : 5432}
 `;
@@ -366,7 +375,7 @@ dotenv.config();
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || '${dbUser}',
-  password: process.env.DB_PASS || '${dbPass}',
+  password: process.env.DB_PASS || '',
   database: process.env.DB_NAME || '${dbName}',
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
@@ -386,7 +395,7 @@ dotenv.config();
 const db = new Pool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || '${dbUser}',
-  password: process.env.DB_PASS || '${dbPass}',
+  password: process.env.DB_PASS || '',
   database: process.env.DB_NAME || '${dbName}',
   port: process.env.DB_PORT || 5432,
 });
@@ -587,7 +596,210 @@ ${parsedTables.map(t => `  console.log(\`   - http://localhost:\${PORT}/api/${t.
 });
 `;
 
-      // 6. README.md
+      // 6. insomnia.json (Insomnia v4 Collection Export)
+      const insomniaResources = [];
+      const baseWorkspaceId = "wrk_" + Math.random().toString(36).substring(2, 11);
+      
+      insomniaResources.push({
+        _id: baseWorkspaceId,
+        parentId: null,
+        modified: Date.now(),
+        created: Date.now(),
+        name: `${projectName} API Collection`,
+        description: `Coleção gerada automaticamente para testes no Insomnia / Postman`,
+        scope: "collection",
+        _type: "workspace"
+      });
+
+      const baseEnvId = "env_" + Math.random().toString(36).substring(2, 11);
+      insomniaResources.push({
+        _id: baseEnvId,
+        parentId: baseWorkspaceId,
+        modified: Date.now(),
+        created: Date.now(),
+        name: "Base Environment",
+        data: {
+          base_url: `http://localhost:${serverPort}`
+        },
+        dataPropertyOrder: {
+          "&": ["base_url"]
+        },
+        color: null,
+        isPrivate: false,
+        metaSortKey: Date.now(),
+        _type: "environment"
+      });
+
+      parsedTables.forEach((table, tIndex) => {
+        const tName = table.name;
+        const nonPkCols = table.columns.filter(c => c.name.toLowerCase() !== table.primaryKey.toLowerCase());
+        const sampleBody = {};
+        nonPkCols.forEach(c => {
+          let val = "exemplo";
+          if (c.type.includes('INT') || c.type.includes('DECIMAL') || c.type.includes('NUMERIC') || c.type.includes('FLOAT')) val = 1;
+          else if (c.type.includes('BOOL')) val = true;
+          sampleBody[c.name] = val;
+        });
+
+        const folderId = "fld_" + tIndex + "_" + Math.random().toString(36).substring(2, 8);
+        insomniaResources.push({
+          _id: folderId,
+          parentId: baseWorkspaceId,
+          modified: Date.now(),
+          created: Date.now(),
+          name: tName.toUpperCase(),
+          description: `Endpoints para a tabela ${tName}`,
+          environment: {},
+          environmentPropertyOrder: null,
+          metaSortKey: -(tIndex + 1) * 10,
+          _type: "request_group"
+        });
+
+        // GET All
+        insomniaResources.push({
+          _id: "req_get_all_" + tIndex,
+          parentId: folderId,
+          modified: Date.now(),
+          created: Date.now(),
+          url: "{{ _.base_url }}/api/" + tName,
+          name: `Listar ${tName}`,
+          description: `Retorna todos os registros de ${tName}`,
+          method: "GET",
+          body: {},
+          parameters: [],
+          headers: [],
+          authentication: {},
+          metaSortKey: 10,
+          isPrivate: false,
+          settingStoreCookies: true,
+          settingSendCookies: true,
+          settingDisableRenderRequestBody: false,
+          settingEncodeUrl: true,
+          settingRebuildPath: true,
+          settingFollowRedirects: "global",
+          _type: "request"
+        });
+
+        // GET By ID
+        insomniaResources.push({
+          _id: "req_get_id_" + tIndex,
+          parentId: folderId,
+          modified: Date.now(),
+          created: Date.now(),
+          url: "{{ _.base_url }}/api/" + tName + "/1",
+          name: `Buscar ${tName} por ID`,
+          description: `Retorna um registro específico pelo ${table.primaryKey}`,
+          method: "GET",
+          body: {},
+          parameters: [],
+          headers: [],
+          authentication: {},
+          metaSortKey: 20,
+          isPrivate: false,
+          settingStoreCookies: true,
+          settingSendCookies: true,
+          settingDisableRenderRequestBody: false,
+          settingEncodeUrl: true,
+          settingRebuildPath: true,
+          settingFollowRedirects: "global",
+          _type: "request"
+        });
+
+        // POST Create
+        insomniaResources.push({
+          _id: "req_post_" + tIndex,
+          parentId: folderId,
+          modified: Date.now(),
+          created: Date.now(),
+          url: "{{ _.base_url }}/api/" + tName,
+          name: `Criar ${tName}`,
+          description: `Cria um novo registro na tabela ${tName}`,
+          method: "POST",
+          body: {
+            mimeType: "application/json",
+            text: JSON.stringify(sampleBody, null, 2)
+          },
+          parameters: [],
+          headers: [
+            { name: "Content-Type", value: "application/json" }
+          ],
+          authentication: {},
+          metaSortKey: 30,
+          isPrivate: false,
+          settingStoreCookies: true,
+          settingSendCookies: true,
+          settingDisableRenderRequestBody: false,
+          settingEncodeUrl: true,
+          settingRebuildPath: true,
+          settingFollowRedirects: "global",
+          _type: "request"
+        });
+
+        // PUT Update
+        insomniaResources.push({
+          _id: "req_put_" + tIndex,
+          parentId: folderId,
+          modified: Date.now(),
+          created: Date.now(),
+          url: "{{ _.base_url }}/api/" + tName + "/1",
+          name: `Atualizar ${tName}`,
+          description: `Atualiza um registro existente`,
+          method: "PUT",
+          body: {
+            mimeType: "application/json",
+            text: JSON.stringify(sampleBody, null, 2)
+          },
+          parameters: [],
+          headers: [
+            { name: "Content-Type", value: "application/json" }
+          ],
+          authentication: {},
+          metaSortKey: 40,
+          isPrivate: false,
+          settingStoreCookies: true,
+          settingSendCookies: true,
+          settingDisableRenderRequestBody: false,
+          settingEncodeUrl: true,
+          settingRebuildPath: true,
+          settingFollowRedirects: "global",
+          _type: "request"
+        });
+
+        // DELETE
+        insomniaResources.push({
+          _id: "req_delete_" + tIndex,
+          parentId: folderId,
+          modified: Date.now(),
+          created: Date.now(),
+          url: "{{ _.base_url }}/api/" + tName + "/1",
+          name: `Deletar ${tName}`,
+          description: `Remove um registro pelo ID`,
+          method: "DELETE",
+          body: {},
+          parameters: [],
+          headers: [],
+          authentication: {},
+          metaSortKey: 50,
+          isPrivate: false,
+          settingStoreCookies: true,
+          settingSendCookies: true,
+          settingDisableRenderRequestBody: false,
+          settingEncodeUrl: true,
+          settingRebuildPath: true,
+          settingFollowRedirects: "global",
+          _type: "request"
+        });
+      });
+
+      generatedFiles["insomnia.json"] = JSON.stringify({
+        _type: "export",
+        __export_format: 4,
+        __export_date: new Date().toISOString(),
+        __export_source: "Backend Generator SQL",
+        resources: insomniaResources
+      }, null, 2);
+
+      // 7. README.md
       generatedFiles["README.md"] = `# 🚀 ${projectName}
 
 Backend Node.js + Express gerado automaticamente a partir do script SQL para **${dbType.toUpperCase()}**.
@@ -643,59 +855,7 @@ ${parsedTables.map(t => `### Tabela \`${t.name}\`
       `).join('');
     }
 
-    // --- FILE SYSTEM ACCESS API: WRITE DIRECTLY TO DESKTOP / DISK ---
-    async function saveDirectToFolder() {
-      const projectName = document.getElementById('cfg-project-name').value.trim() || 'meu-backend-api';
-
-      // Verifica se o navegador suporta a API ou se está rodando em um iframe bloqueado
-      if (!('showDirectoryPicker' in window) || window.self !== window.top) {
-        showToast('Modo Pré-visualização Detectado', 'O seletor de pastas é bloqueado em iframes. Iniciando download automático em ZIP...', 'info');
-        await downloadAsZip();
-        return;
-      }
-
-      try {
-        showToast('Escolha a Pasta', 'Selecione a sua Área de Trabalho (Desktop) ou qualquer pasta onde o projeto será criado.', 'info');
-
-        const parentHandle = await window.showDirectoryPicker({
-          mode: 'readwrite',
-          startIn: 'desktop'
-        });
-
-        // Create main project folder
-        const projectHandle = await parentHandle.getDirectoryHandle(projectName, { create: true });
-
-        // Iterate over generated files and construct folder tree
-        for (const [filePath, content] of Object.entries(generatedFiles)) {
-          const parts = filePath.split('/');
-          let currentHandle = projectHandle;
-
-          // Create subdirectories if needed (e.g. controllers/, routes/, config/)
-          for (let i = 0; i < parts.length - 1; i++) {
-            currentHandle = await currentHandle.getDirectoryHandle(parts[i], { create: true });
-          }
-
-          // Write file content
-          const fileName = parts[parts.length - 1];
-          const fileHandle = await currentHandle.getFileHandle(fileName, { create: true });
-          const writable = await fileHandle.createWritable();
-          await writable.write(content);
-          await writable.close();
-        }
-
-        showToast('Pasta Criada!', `A pasta "${projectName}" foi criada no seu computador com todos os arquivos e subpastas!`, 'success');
-      } catch (err) {
-        if (err.name === 'SecurityError') {
-          showToast('Restrição de Segurança', 'Acesso direto bloqueado neste ambiente. Baixando o projeto em ZIP...', 'info');
-          await downloadAsZip();
-        } else if (err.name !== 'AbortError') {
-          console.error(err);
-          showToast('Erro ao salvar', 'Não foi possível gravar a pasta: ' + err.message, 'error');
-        }
-      }
-    }
-
-    // --- ZIP DOWNLOAD FALLBACK ---
+    // --- ZIP DOWNLOAD ---
     async function downloadAsZip() {
       const projectName = document.getElementById('cfg-project-name').value.trim() || 'meu-backend-api';
 
