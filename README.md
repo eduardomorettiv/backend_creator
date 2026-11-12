@@ -10,4 +10,4 @@ Fazer um **criador de backend** com banco de dados no computador com a ajuda de 
 - Abra o site:
 https://eduardomorettiv.github.io/backend_creator/
 - Cole um script.sql
-- Clique em *Baixar como zip* ou *Criar pasta direto no computador*
+- Clique em *Baixar como zip*
